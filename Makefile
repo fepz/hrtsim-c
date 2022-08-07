@@ -1,6 +1,6 @@
 CC=gcc
 BIN=./bin
-CFLAGS=-Wall -Werror -g -lpthread -lrt
+CFLAGS=-Wall -Werror -g
 
 PROGS=sim
 
