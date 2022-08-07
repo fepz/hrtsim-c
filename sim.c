@@ -48,7 +48,7 @@ void print_list(struct event_list* list);
 void schedule(struct event* e);
 
 void terminate(struct event* e) {
-        printf("%d\tEND\t%d\n", e->time, task_list.head->prio);
+        printf("%d\tE\t%d\n", e->time, task_list.head->prio);
         // remove task item
         struct task_item *ti = task_list.head;
         remove_task_item(&task_list, ti);
