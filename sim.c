@@ -45,6 +45,8 @@ void insert_event(struct event_list* list, struct event* event);
 void insert_task_item(struct task_list* list, struct task_item* task_item);
 void remove_task_item(struct task_list* list, struct task_item* task_item);
 void print_list(struct event_list* list);
+void add_task_arrival(struct task* task, int time);
+void set_simulation_end(int time);
 void schedule(struct event* e);
 
 void terminate(struct event* e) {
@@ -92,7 +94,7 @@ void task_arrival(struct event* e) {
         }
 
         // Next arrival
-        insert_event(&list, new_event(e->time + t->period, ARRIVAL, task_arrival, (void*)t));
+        add_task_arrival(t, e->time + t->period);
 }
 
 void insert_task_item(struct task_list* list, struct task_item* task_item)
@@ -171,6 +173,16 @@ void print_list(struct event_list* list)
         } while(head);
 }
 
+void add_task_arrival(struct task* task, int time)
+{
+        insert_event(&list, new_event(time, ARRIVAL, task_arrival, (void*) task));
+}
+
+void set_simulation_end(int time)
+{
+        insert_event(&list, new_event(time, END, terminate, (void*) 0));
+}
+
 int main(int argc, char* argv[])
 {
         struct task *t1 = (struct task*) malloc(sizeof(struct task));
@@ -193,11 +205,11 @@ int main(int argc, char* argv[])
         t4->period = 12;
         t4->deadline = 12;
         t4->ret = t4->wcet;
-        insert_event(&list, new_event(0, ARRIVAL, task_arrival, (void*) t1));
-        insert_event(&list, new_event(0, ARRIVAL, task_arrival, (void*) t2));
-        insert_event(&list, new_event(0, ARRIVAL, task_arrival, (void*) t3));
-        insert_event(&list, new_event(0, ARRIVAL, task_arrival, (void*) t4));
-        insert_event(&list, new_event(25, END, terminate, (void*) 0));
+        add_task_arrival(t1, 0);
+        add_task_arrival(t2, 0);
+        add_task_arrival(t3, 0);
+        add_task_arrival(t4, 0);
+        set_simulation_end(25);
         sim(&list);
         exit(EXIT_SUCCESS);
 }
