@@ -20,16 +20,6 @@ struct event_list {
         struct event* head;
 };
 
-struct time_slot {
-        int time;
-        struct event_list* event_list;
-        struct time_slot* next;
-};
-
-struct time_slot_list {
-        struct time_slot* head;
-};
-
 struct task {
         int wcet;
         int period;
@@ -49,7 +39,6 @@ struct task_list {
 
 struct task_list task_list;
 struct event_list list;
-struct time_slot_list slot_list;
 
 struct event* new_event(int time, int type, void (*func)(struct event*), void* data);
 void insert_event(struct event_list* list, struct event* event);
@@ -104,21 +93,6 @@ void task_arrival(struct event* e) {
 
         // Next arrival
         insert_event(&list, new_event(e->time + t->period, ARRIVAL, task_arrival, (void*)t));
-}
-
-void insert_event_into_slot(struct time_slot_list* list, struct event* event)
-{
-        struct time_slot** pp = &(list->head);
-        struct time_slot* entry = list->head;
-
-        while (entry) {
-                if (entry->time > event->time)
-                        break;
-                pp = &(entry->next);
-                entry = entry->next;
-        }
-
-        insert_event(entry->event_list, event);
 }
 
 void insert_task_item(struct task_list* list, struct task_item* task_item)
