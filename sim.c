@@ -161,9 +161,22 @@ void sim(struct event_list* list)
 {
         struct event* head = list->head;
         do {
-                head->func(head);
-                if (head->type == END)
-                        return;
+                switch(head->type) {
+                        case END:
+                                return;
+                        case ARRIVAL:
+                                task_arrival(head);
+                                break;
+                        case TERMINATE:
+                                terminate(head);
+                                break;
+                        case SCHEDULING:
+                                schedule(head);
+                                break;
+                        default:
+                                fprintf(stderr, "Error: unknown event.\n");
+                                exit(EXIT_FAILURE);
+                }
                 head = head->next;
         } while(head);
 }
@@ -179,22 +192,22 @@ void print_list(struct event_list* list)
 
 void add_arrival(struct task* task, int time)
 {
-        insert_event(&list, new_event(time, ARRIVAL, task_arrival, (void*) task));
+        insert_event(&list, new_event(time, ARRIVAL, NULL, (void*) task));
 }
 
 void add_scheduling(int time)
 {
-        insert_event(&list, new_event(time, SCHEDULING, schedule, (void*) NULL));
+        insert_event(&list, new_event(time, SCHEDULING, NULL, (void*) NULL));
 }
 
 void add_terminate(int time)
 {
-        insert_event(&list, new_event(time, TERMINATE, terminate, (void*) NULL));
+        insert_event(&list, new_event(time, TERMINATE, NULL, (void*) NULL));
 }
 
 void set_simulation_end(int time)
 {
-        insert_event(&list, new_event(time, END, terminate, (void*) 0));
+        insert_event(&list, new_event(time, END, NULL, (void*) 0));
 }
 
 void load_rts_from_file(FILE* f, int n, struct task_list *l)
