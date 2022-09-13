@@ -12,6 +12,7 @@ struct event {
         int time;
         int type;
         void (*func)(struct event*);
+        struct task* task;
         void* data;
         struct event* next;
 };
@@ -40,9 +41,10 @@ struct task_list {
 };
 
 struct task_list task_list;
+struct task_list ready_list;
 struct event_list list;
 
-struct event* new_event(int time, int type, void (*func)(struct event*), void* data);
+struct event* new_event(int time, int type, void (*func)(struct event*), struct task* task, void* data);
 void insert_event(struct event_list* list, struct event* event);
 void insert_task_item(struct task_list* list, struct task_item* task_item);
 void remove_task_item(struct task_list* list, struct task_item* task_item);
@@ -54,18 +56,18 @@ void add_terminate(int time);
 void schedule(struct event* e);
 
 void terminate(struct event* e) {
-        struct task_item *ti = task_list.head;
+        struct task_item *ti = ready_list.head;
         // remove task item
         printf("%d\tT_%d_%d\tE\n", e->time, ti->task->id, ti->task->instance);
-        remove_task_item(&task_list, ti);
+        remove_task_item(&ready_list, ti);
         free(ti);
         // new scheduling event
         add_scheduling(e->time);
 }
 
 void schedule(struct event* e) {
-        if (task_list.head) {
-                struct task* t = task_list.head->task;
+        if (ready_list.head) {
+                struct task* t = ready_list.head->task;
                 printf("%d\tT_%d_%d\tS\n", e->time, t->id, t->instance);
                 if (e->time + t->ret <= e->next->time)
                         add_terminate(e->time + t->ret);
@@ -76,7 +78,7 @@ void schedule(struct event* e) {
 int last_task_arrival = -1;
 
 void task_arrival(struct event* e) {
-        struct task *t = (struct task*) e->data;
+        struct task *t = e->task;
 
         // Restore remnant execution time
         t->ret = t->wcet;
@@ -87,7 +89,7 @@ void task_arrival(struct event* e) {
         ti->prio = t->period; // RM
         ti->task = t;
         ti->next = NULL;
-        insert_task_item(&task_list, ti);
+        insert_task_item(&ready_list, ti);
 
         // Call scheduling
         if (last_task_arrival < e->time) {
@@ -146,12 +148,13 @@ void insert_event(struct event_list* list, struct event* event) {
         event->next = entry;
 }
 
-struct event* new_event(int time, int type, void (*func)(struct event*), void* data)
+struct event* new_event(int time, int type, void (*func)(struct event*), struct task* task, void* data)
 {
         struct event* e = (struct event*) malloc(sizeof(struct event));
         e->time = time;
         e->type = type;
         e->func = func;
+        e->task = task;
         e->data = data;
         e->next = NULL;
         return e;
@@ -192,63 +195,64 @@ void print_list(struct event_list* list)
 
 void add_arrival(struct task* task, int time)
 {
-        insert_event(&list, new_event(time, ARRIVAL, NULL, (void*) task));
+        insert_event(&list, new_event(time, ARRIVAL, NULL, task, NULL));
 }
 
 void add_scheduling(int time)
 {
-        insert_event(&list, new_event(time, SCHEDULING, NULL, (void*) NULL));
+        insert_event(&list, new_event(time, SCHEDULING, NULL, NULL, NULL));
 }
 
 void add_terminate(int time)
 {
-        insert_event(&list, new_event(time, TERMINATE, NULL, (void*) NULL));
+        insert_event(&list, new_event(time, TERMINATE, NULL, NULL, NULL));
 }
 
 void set_simulation_end(int time)
 {
-        insert_event(&list, new_event(time, END, NULL, (void*) 0));
+        insert_event(&list, new_event(time, END, NULL, NULL, NULL));
 }
 
-void load_rts_from_file(FILE* f, int n, struct task_list *l)
+void load_rts_from_file(FILE* f, struct task_list *l)
 {
+        int n, i;
 
+        fscanf(f, "%d\n", &n);
+
+        for (i = 0; i < n; i++) {
+                struct task *t = (struct task*) malloc(sizeof(struct task));
+                t->id = i + 1;
+                fscanf(f, "%d\n", &(t->wcet));
+                fscanf(f, "%d\n", &(t->period));
+                fscanf(f, "%d\n", &(t->deadline));
+                t->ret = t->wcet;
+                t->instance = 0;
+
+                // Add task to list
+                struct task_item* ti = (struct task_item*) malloc(sizeof(struct task_item));
+                ti->prio = 0;
+                ti->task = t;
+                ti->next = NULL;
+                insert_task_item(l, ti);
+        }
 }
 
 int main(int argc, char* argv[])
 {
-        struct task *t1 = (struct task*) malloc(sizeof(struct task));
-        t1->id = 1;
-        t1->wcet = 1;
-        t1->period = 3;
-        t1->deadline = 3;
-        t1->ret = t1->wcet;
-        t1->instance = 0;
-        struct task *t2 = (struct task*) malloc(sizeof(struct task));
-        t2->id = 2;
-        t2->wcet = 1;
-        t2->period = 4;
-        t2->deadline = 4;
-        t2->ret = t2->wcet;
-        t2->instance = 0;
-        struct task *t3 = (struct task*) malloc(sizeof(struct task));
-        t3->id = 3;
-        t3->wcet = 2;
-        t3->period = 6;
-        t3->deadline = 6;
-        t3->ret = t3->wcet;
-        t3->instance = 0;
-        struct task *t4 = (struct task*) malloc(sizeof(struct task));
-        t4->id = 4;
-        t4->wcet = 1;
-        t4->period = 12;
-        t4->deadline = 12;
-        t4->ret = t4->wcet;
-        t4->instance = 0;
-        add_arrival(t1, 0);
-        add_arrival(t2, 0);
-        add_arrival(t3, 0);
-        add_arrival(t4, 0);
+        FILE* f;
+        if (argc == 2) { 
+            f = fopen(argv[1], "r");
+        } else {
+            f = stdin;
+        }
+        load_rts_from_file(f, &task_list);
+
+        struct task_item* head = task_list.head;
+        do {
+                add_arrival(head->task, 0);
+                head = head->next;
+        } while(head);
+        
         set_simulation_end(25);
         sim(&list);
         exit(EXIT_SUCCESS);
